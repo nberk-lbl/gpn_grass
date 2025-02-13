@@ -6,10 +6,10 @@ from gpn.data import (
 
 rule make_all_intervals:
     input:
-        "results/genome/{assembly}.fa.gz",
+        "/pscratch/sd/n/nberk/results/genome/{assembly}.fa.gz",
     output:
-        "results/intervals/{assembly}/all.parquet",
-    threads: 2
+        "/pscratch/sd/n/nberk/results/intervals/{assembly}/all.parquet",
+    threads: workflow.cores
     run:
         I = Genome(input[0]).get_all_intervals()
         I = filter_length(I, config["window_size"])
@@ -18,10 +18,10 @@ rule make_all_intervals:
 
 rule make_defined_intervals:
     input:
-        "results/genome/{assembly}.fa.gz",
+        "/pscratch/sd/n/nberk/results/genome/{assembly}.fa.gz",
     output:
-        "results/intervals/{assembly}/defined.parquet",
-    threads: 2
+        "/pscratch/sd/n/nberk/results/intervals/{assembly}/defined.parquet",
+    threads: workflow.cores
     run:
         I = Genome(input[0]).get_defined_intervals()
         I = filter_length(I, config["window_size"])
@@ -30,10 +30,10 @@ rule make_defined_intervals:
 
 rule make_annotation_intervals:
     input:
-        "results/intervals/{assembly}/defined.parquet",
-        "results/annotation/{assembly}.gff.gz",
+        "/pscratch/sd/n/nberk/results/intervals/{assembly}/defined.parquet",
+        "/pscratch/sd/n/nberk/results/annotation/{assembly}.gff.gz",
     output:
-        "results/intervals/{assembly}/annotation_{feature}.parquet",
+        "/pscratch/sd/n/nberk/results/intervals/{assembly}/annotation_{feature}.parquet",
     run:
         I = pd.read_parquet(input[0])
         annotation = load_table(input[1])
@@ -51,10 +51,10 @@ rule make_annotation_intervals:
 
 rule make_balanced_v1_intervals:
     input:
-        "results/intervals/{assembly}/defined.parquet",
-        "results/annotation/{assembly}.gff.gz",
+        "/pscratch/sd/n/nberk/results/intervals/{assembly}/defined.parquet",
+        "/pscratch/sd/n/nberk/results/annotation/{assembly}.gff.gz",
     output:
-        "results/intervals/{assembly}/balanced_v1.parquet",
+        "/pscratch/sd/n/nberk/results/intervals/{assembly}/balanced_v1.parquet",
     run:
         defined_intervals = load_table(input[0])
         annotation = load_table(input[1])

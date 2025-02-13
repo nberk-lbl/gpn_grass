@@ -1,0 +1,37 @@
+rule all:
+    input:
+
+rule make_umap_plot:
+    input:
+       "labels file", "embeddings file"
+    shell:
+       "python sk_umap.py TAIR10.allchrom.json"
+
+rule pad_intergenic:
+    input:
+       "un-padded labels file"
+    output:
+       "labels file"
+
+rule gff_to_windows:
+    input:
+       "gff"
+    output:
+        "un-padded labels file"
+
+rule run_gpn:
+    input:
+        "fasta file"
+    output:
+        "embeddings file"
+
+
+"""
+`python run_gpn.py TAIR10.allchrom.json`
+
+`python gff_to_window.py TAIR10.allchrom.json`
+
+`python pad_intergenic.py TAIR10.allchrom.json`
+
+`python sk_umap.py TAIR10.allchrom.json`
+"""

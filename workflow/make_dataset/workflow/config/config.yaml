@@ -20,12 +20,37 @@ split_proportion:
 
 # this chroms are forced to be in validation set
 whitelist_validation_chroms:
-- "V02"  # T intermedium V02
+- "J01"            
+- "J02"            
+- "J03"            
+- "J04"            
+- "J05"            
+- "J06"            
+- "J07"             
+  
 # this chroms are forced to be in test set
 whitelist_test_chroms:
-- "S07"  # T intermedium S07
+- "S01"            
+- "S02"            
+- "S03"            
+- "S04"            
+- "S05"            
+- "S06"            
+- "S07"             
 
 # We want to split data into shards of e.g. ~100MB each
 # It's good to have at least num_cpus shards to increase parallel loading speed
 # of iterable datasets from HF hub
 samples_per_file: 500_000 
+
+slurm:
+  nodes: 1
+  cpus_per_task: 16
+  gpus: 16
+  constraint: gpu
+  queue: regular
+  account: m342
+  job_name: tiberius_gpu
+  mail_user: nberkowitz@lbl.gov
+  mail_type: ALL
+  time: "24:00:00"

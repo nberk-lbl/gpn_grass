@@ -7,15 +7,31 @@ print(config)
 assemblies = pd.read_csv(config["assemblies_path"], sep="\t", index_col=0)
 splits = ["train", "validation", "test"]
 
-# comment out if you have your own fasta files
-# and make sure you have genomes (and annotations, if applicable) in the right place
-# results/genome/{assembly}.fa.gz (and results/annotation/{assembly}.gff.gz)
-include: "rules/download.smk"
-
 include: "rules/intervals.smk"
 include: "rules/dataset.smk"
 
 
 rule all:
     input:
-        expand("results/dataset/data/{split}", split=splits),
+        expand("/pscratch/sd/n/nberk/results/dataset/data/{split}", split=splits),
+
+# Define the Slurm cluster configuration
+slurm_config = config["slurm"]
+
+# Create a function to generate the Slurm command
+def slurm_params(wildcards):
+    return "--nodes {nodes} --cpus-per-task {cpus_per_task} --gpus {gpus} -C {constraint} -q {queue} --account {account} -J {job_name} --mail-user {mail_user} --mail-type {mail_type} -t {time}".format(**slurm_config)
+
+# Use the cluster configuration
+cluster_config = {
+    "all": slurm_params
+}
+
+# Set Snakemake to use the cluster configuration
+from snakemake.utils import min_version
+min_version("5.10.0")
+
+# Run the workflow
+if __name__ == '__main__':
+    from snakemake import snakemake
+    snakemake("Snakefile", cluster=cluster_config, jobs=100, use_conda=True)

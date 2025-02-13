@@ -1,0 +1,1 @@
+srun -C gpu -q regular --account=m342 -J tiberius_gpu --mail-user=nberkowitz@lbl.gov --mail-type=ALL -t 24:00:00 ./torchrun_cmd.sh
