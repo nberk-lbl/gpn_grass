@@ -11,40 +11,32 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 import sys
 
-labels_file = "/clusterfs/jgi/scratch/science/wcplant/nberkowitz/labels.tsv"
-embeddings_file = "/clusterfs/jgi/scratch/science/wcplant/nberkowitz/embeddings.tsv"
+
+labels_file = "TAIR10_chr_1,1000000,4000000_labels.tsv"
+embeddings_file = "TAIR10_chr_1,1000000,4000000.tsv"
+
 
 # Load the embeddings and labels
-print("loading embeddings")
-embeddings = np.loadtxt(embeddings_file, delimiter='\t', skiprows=0)
-
-print("loading labels")
+embeddings = np.loadtxt(embeddings_file, delimiter='\t', skiprows=1)
 labels = []
 with open(labels_file) as lbf:
-    lbf.readline() #skip header
     for n in lbf:
-        idx, pos, region_label = n.split("\t")
+        idx, pos, region_label, name_label = n.split("\t")
         labels.append(region_label)
 
 # Convert labels to numerical values
 le = LabelEncoder()
 labels = le.fit_transform(labels)
 
-
-print("splitting test and train")
 # Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(embeddings, labels, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(embeddings, labels, test_size=0.2, random_state=10)
 
 bst = XGBClassifier(n_estimators=2, max_depth=2, learning_rate=1, objective='multi:softmax', num_class=len(le.classes_))
 
 # Fit the model
-print("fitting model")
 bst.fit(X_train, y_train)
 
-print("saving")
-bst.save_model('/clusterfs/jgi/scratch/science/wcplant/nberkowitz/xg_model.json')
-
-print("creating figures")
+bst.save_model("AT_1_4_5.model")
 
 # Make predictions
 preds = bst.predict(X_test)
