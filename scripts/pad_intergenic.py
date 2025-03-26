@@ -18,10 +18,10 @@ windows_by_chrom = {}
 chrom_names = []
 flank_size = 10
 run_cfg = json.loads(open(sys.argv[1], 'r').read())
-pfx = run_cfg['out_pfx']
+infile = f"{run_cfg['output_dir']}/{run_cfg['out_pfx']}.labels.csv"
+outfile = f"{run_cfg['output_dir']}/{run_cfg['out_pfx']}.labels_subset.csv"
 
-with open(f'data/{pfx}.windows.csv') as label_file:
-    
+with open(infile) as label_file:
     # read the left flank into the buffer and write those lines to the output
     for label_line in label_file:
         chrom, window, label = label_line.rstrip().split(",")
@@ -30,7 +30,7 @@ with open(f'data/{pfx}.windows.csv') as label_file:
             windows_by_chrom[chrom] = []
         windows_by_chrom[chrom].append([chrom, window, label])
 
-with open(f'data/{pfx}.windows_intergenic_repeat_padded.csv', 'w') as label_file:        
+with open(outfile, 'w') as label_file:        
     for chrom in chrom_names:
         windows = windows_by_chrom[chrom]
         w = 0

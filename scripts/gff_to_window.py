@@ -17,7 +17,7 @@ Get avergage embeddings for functionally labeled genomic windows
 run_cfg = json.loads(open(sys.argv[1], 'r').read())
 window_size = run_cfg['window_size']
 threshold = run_cfg['threshold']
-outfile = "data/" + run_cfg['out_pfx']+ ".windows.csv"
+outfile = f"{run_cfg['output_dir']}/{run_cfg['out_pfx']}.labels.csv"
 
 main_gff = run_cfg['gff_path']
 intron_bed = run_cfg['intron_bed']
@@ -27,12 +27,12 @@ seq_order = []
 tags = run_cfg["gff_tags"]
 
 def handle_fields(fields):
+
     chrom = fields[0]
     label = fields[2]
-    start = int(fields[3]) - 1
-    end = int(fields[4]) - 1
+    start = fields[3]
+    end = fields[4] 
     strand = fields[6]
-
 
     # if a specific chrom/contig is specified, only get those features. otherwise use all chromosomes
     if chrom in run_cfg["chrom_size"]:
@@ -43,7 +43,7 @@ def handle_fields(fields):
             
             # mark the covered nucleotide in a heirarchichal dict
             for nt in range(start, end):
-                window_num = int(nt / window_size)
+                window_num = int((nt-start) / window_size)
                 if not window_num in windows[chrom]:
                     windows[chrom][window_num] = {}
                 if not strand in windows[chrom][window_num]:
@@ -64,21 +64,24 @@ def handle_fields(fields):
 
 
 print("parsing main gff")
+print(main_gff)
 with gzip.open(main_gff, 'rb') as gff:
     for gff_line in gff:
         g_line = gff_line.decode("utf-8").rstrip()      
         if g_line[0] != '#':
             fields = g_line.split("\t")
+            fields[3] = int(fields[3]) - 1
+            fields[4] = int(fields[4])
             handle_fields(fields)
+            
 
 ## add introns
 print("parsing intron bed")
 tags = ['intron']
 with open(intron_bed) as i_bed:
     for bed_line in i_bed:
-
         chrom, start, end, name, score, strand = bed_line.rstrip().split("\t")
-        fields = [chrom, '', 'intron', start, end, '', strand]
+        fields = [chrom, '', 'intron', int(start), int(end), '', strand]
         handle_fields(fields)
 
 ## add repeats
@@ -86,23 +89,24 @@ print("parsing repeat bed")
 tags = ['repeat']
 with open(run_cfg["repeat_bed"]) as bed:
     for bed_line in bed:
-        chrom, start, end, name, score, strand = bed_line.rstrip().split("\t")
-
-        fields = [chrom, '', 'repeat', start, end, '', strand]
+        chrom, start, end = bed_line.rstrip().split("\t")[0:3]
+        fields = [chrom, '', 'repeat', int(start), int(end), '', strand]
         handle_fields(fields)
 
 tags = run_cfg["gff_tags"] + ['intron', 'repeat']
+
+print(outfile)
 with open(outfile, 'w') as csv:
-    for chrom in seq_order:
+
+    for chrom in run_cfg['chrom_order']:
         if (chrom in run_cfg['chrom_size']):
-            max_window = int(run_cfg['chrom_size'][chrom] / window_size) + 1
+            max_window = int(run_cfg['chrom_size'][chrom] / window_size)
             for b in range(max_window):
                 label = 'intergenic'
-
+                
                 # a window is ambiguous unless all of its nucleotides belong to exactly one feature
                 # bins with features on both strands are ambiguous even if they match
-
-                if b in windows[chrom]:
+                if chrom in windows and b in windows[chrom]:
                     strands = list(windows[chrom][b].keys())
                     if len(strands) != 1:
                         label = 'ambiguous'

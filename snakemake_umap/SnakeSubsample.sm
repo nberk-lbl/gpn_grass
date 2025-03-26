@@ -1,0 +1,229 @@
+genome_stubs = [
+    "Zmays_833_Zm-B73-REFERENCE-NAM-5.0",
+    "Phallii_590_v3.0",
+    "Bdistachyon_556_v3.0",
+    "Pvirgatum_516_v5.0",
+    "Sbicolor_730_v5.0",
+    "Sviridis_726_v4.0",
+    "Tintermedium_770_v3.0",
+    "OsativaKitaake_499_v3.0"
+]
+
+#genome_stubs = [
+#    "Bdistachyon_556_v3.0"
+#]
+
+
+
+gff_lookup = {
+    "Zmays_833_Zm-B73-REFERENCE-NAM-5.0" :   "Zmays_833_Zm-B73-REFERENCE-NAM-5.0.55.gene_exons",
+    "Tintermedium_770_v3.0"              :   "Tintermedium_770_v3.1.gene_exons",
+    "Sviridis_726_v4.0"                  :   "Sviridis_726_v4.1.gene_exons",
+    "Sbicolor_730_v5.0"                  :   "Sbicolor_730_v5.1.gene_exons",
+    "Pvirgatum_516_v5.0"                 :   "Pvirgatum_516_v5.1.gene_exons",
+    "Phallii_590_v3.0"                   :   "Phallii_590_v3.2.gene_exons",
+    "Bdistachyon_556_v3.0"               :   "Bdistachyon_556_v3.2.gene_exons",
+    "OsativaKitaake_499_v3.0"            :   "OsativaKitaake_499_v3.1.gene_exons"
+}
+
+top_repo_path = "/global/homes/n/nberk/gpn_grass"
+top_data_path = "/pscratch/sd/n/nberk"
+
+
+
+rule all:
+    input:
+        expand(f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.umap.png", genome_stub=genome_stubs)
+
+
+rule plot_umap:
+    input:
+        json = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.json",
+        embed = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.avg_embeddings.tsv",
+        labels = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.labels_subset.csv"
+
+    output:
+         f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.umap.png"
+
+
+    shell:
+        f"python {top_repo_path}/scripts/sk_umap.py {{input.json}}"
+        
+
+
+rule compute_avg_embeddings:
+    input: 
+        json = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.json",
+        fa_path = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.sample.fa.gz"
+         
+    output:
+        f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.avg_embeddings.tsv"
+
+    shell:
+        f"python {top_repo_path}/scripts/run_gpn.py {{input.json}}"
+
+
+rule pad_intergenic:
+    input:
+        json = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.json",
+        labels_files = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.labels.csv"
+
+    output:
+        f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.labels_subset.csv"
+
+    shell:
+        f"python {top_repo_path}/scripts/pad_intergenic.py {{input.json}}"
+
+rule gff_to_window:
+    input:
+        json = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.json",
+        gff = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.sample.gff3.gz",
+        repeat = f"{top_data_path}/repeat_bed/{{genome_stub}}.repeat.bed",
+        intron = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.introns.bed"
+
+    output:
+        f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.labels.csv"
+        
+    shell:
+        f"python {top_repo_path}/scripts/gff_to_window.py {{input.json}}"
+
+rule create_json:
+    input:
+        fa_path = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.sample.fa.gz",
+        gff_path = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.sample.gff3.gz",
+        intron_bed = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.introns.bed",
+        chrom_size_tsv = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.chrom_len.tsv",
+        repeat_bed = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.repeat.bed"
+    output:
+        f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.json"
+    run:
+        import json
+
+        # Create base JSON structure
+        json_dict = {
+            "fa_path": input.fa_path,
+            "gff_path": input.gff_path,
+            "intron_bed": input.intron_bed,
+            "repeat_bed": input.repeat_bed,
+            "threshold" : 0,
+            "gff_tags": ["CDS", "three_prime_UTR", "five_prime_UTR", "ncRNA"],
+            "output_dir": f"{top_data_path}/intermediate_files_sample_0004",
+            "window_size": 100,
+            "out_pfx": wildcards.genome_stub
+        }
+
+        # Load chromosome sizes
+        chrom_sizes = {}
+        chrom_order = []
+        chrom_start_index = {}
+
+        with open(input.chrom_size_tsv) as f:
+            for line in f:
+                chrom, size = line.strip().split('\t')
+                chrom_sizes[chrom] = int(size)
+                chrom_order.append(chrom)
+
+        json_dict["chrom_order"] = chrom_order
+        json_dict["chrom_size"] = chrom_sizes
+
+        # Write JSON output
+        with open(output[0], 'w') as f:
+            json.dump(json_dict, f, indent=4)
+
+
+rule create_repeat_bed:
+    input: 
+        f"{top_data_path}/results/hardmasked_fa/{{genome_stub}}.hardmasked.fa.gz"
+    output:
+        f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.repeat.bed"
+    run:
+        
+        import sys
+        from Bio import SeqIO
+        import os
+        import gzip
+
+        with gzip.open(input[0], 'rt') as fa, open(output[0], 'w') as bed:
+            records = SeqIO.parse(fa, "fasta")
+            intervals = {}
+            start = 0
+            end = 0
+            chrom = ""
+            inside_interval = False
+            for rec in records:
+                chrom = rec.id
+                intervals[chrom] = []
+                pos = 0
+                for n in rec.seq:
+                    if n == "N":
+                        if not inside_interval:
+                            start = str(pos)
+                            inside_interval = True
+                    else:
+                        if inside_interval:
+                            end = str(pos)
+                            inside_interval = False
+                            intervals[chrom].append((start, end))
+                    pos += 1
+
+            for chrom in intervals:
+                for interval in intervals[chrom]:
+                    print(f"{chrom}\t{interval[0]}\t{interval[1]}", file = bed)
+
+rule infer_introns:
+    input:
+        lambda wildcards: f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.sample.gff3.gz"
+    output:
+        exon_gff = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.introns.exons.gff3",
+        mRNA_gff = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.transcripts.gff3",
+        exon_bed = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.introns.exons.bed",
+        mRNA_bed = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.transcripts.bed",
+        exon_bed_sorted = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.introns.exons.sorted.bed",
+        mRNA_bed_sorted = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.transcripts.sorted.bed",
+        exon_bed_merged = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.introns.exons.merged.bed",
+        mRNA_bed_merged = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.transcripts.merged.bed",
+        intron_bed = f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.introns.bed"
+    shell:
+        """
+        zgrep exon {input} > {output.exon_gff}
+        zgrep mRNA {input} > {output.mRNA_gff}
+        
+        awk 'BEGIN {{OFS="\t"}} $3 == "exon" {{
+        print $1, $4-1, $5, ".", ".", $7
+        }}' {output.exon_gff} > {output.exon_bed}
+
+        awk 'BEGIN {{OFS="\t"}} $3 == "mRNA" {{
+        print $1, $4-1, $5, ".", ".", $7
+        }}' {output.mRNA_gff} > {output.mRNA_bed}
+
+        bedtools sort -i {output.exon_bed} > {output.exon_bed_sorted}
+        bedtools sort -i {output.mRNA_bed} > {output.mRNA_bed_sorted}
+
+        bedtools merge -s -i {output.exon_bed_sorted} -c 6 -o distinct | awk 'BEGIN {{OFS="\t"}} {{print $1, $2, $3, ".", ".", $4}}' > {output.exon_bed_merged}
+        bedtools merge -s -i {output.mRNA_bed_sorted} -c 6 -o distinct | awk 'BEGIN {{OFS="\t"}} {{print $1, $2, $3, ".", ".", $4}}' > {output.mRNA_bed_merged}
+
+        bedtools subtract -s -a {output.mRNA_bed_merged} -b {output.exon_bed_merged} > {output.intron_bed} 
+        """
+
+
+rule calc_chrom_sizes:
+    input:
+        f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.sample.fa.gz"
+    output:
+        f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.chrom_len.tsv"
+
+    shell:
+        f"python {top_repo_path}/scripts/get_chrom_sizes.py {{input}} > {{output}}"
+
+rule sample_genome:
+    input:
+        fa = f"{top_data_path}/results/genome/{{genome_stub}}.fa.gz",
+        gff = lambda wildcards: f"{top_data_path}/results/annotation/{gff_lookup[wildcards.genome_stub]}.gff3.gz"
+    output:
+        f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.sample.fa.gz",
+        f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.sample.gff3.gz",
+        f"{top_data_path}/intermediate_files_sample_0004/{{genome_stub}}.sample.bed"
+    shell:
+        f"python {top_repo_path}/scripts/sample_sequences.py {{input.fa}} {{input.gff}} 100 20000 {top_data_path}/intermediate_files_sample_0004/{{wildcards.genome_stub}}"
+
+

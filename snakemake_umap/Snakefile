@@ -1,5 +1,3 @@
-
-
 genome_stubs = [
     "Zmays_833_Zm-B73-REFERENCE-NAM-5.0",
     "Phallii_590_v3.0",
@@ -10,6 +8,12 @@ genome_stubs = [
     "Tintermedium_770_v3.0",
     "OsativaKitaake_499_v3.0"
 ]
+
+#genome_stubs = [
+#    "Bdistachyon_556_v3.0"
+#]
+
+
 
 gff_lookup = {
     "Zmays_833_Zm-B73-REFERENCE-NAM-5.0" : "Zmays_833_Zm-B73-REFERENCE-NAM-5.0.55.gene_exons.gff3.gz",
@@ -23,24 +27,28 @@ gff_lookup = {
 }
 
 top_repo_path = "/global/homes/n/nberk/gpn_grass"
-top_data_path = "/pscratch/sd/n/nberk"
+top_data_path = "/pscratch/sd/n/nberk/"
 
-"""
+
+
 rule all:
     input:
-        "/pscratch/sd/n/nberk/{genome_stub}.umap.png"
+        expand(f"{top_data_path}/intermediate_files/{{genome_stub}}.umap.png", genome_stub=genome_stubs)
 
 
 rule plot_umap:
     input:
-        "/pscratch/sd/n/nberk/{genome_stub}.json",
-        "/pscratch/sd/n/nberk/{genome_stub}.avg_embeddings.tsv",
-        "/pscratch/sd/n/nberk/{genome_stub}.labels.tsv"
+        json = f"{top_data_path}/intermediate_files/{{genome_stub}}.json",
+        embed = f"{top_data_path}/intermediate_files/{{genome_stub}}.avg_embeddings.tsv",
+        labels = f"{top_data_path}/intermediate_files/{{genome_stub}}.labels.csv"
 
     output:
-        "/pscratch/sd/n/nberk/{genome_stub}.umap.png"
+         f"{top_data_path}/intermediate_files/{{genome_stub}}.umap.png"
+
 
     shell:
+        f"python {top_repo_path}/scripts/sk_umap.py {{input.json}}"
+        
 
 
 rule compute_avg_embeddings:
@@ -49,15 +57,22 @@ rule compute_avg_embeddings:
         fa_path = f"{top_data_path}/results/genome/{{genome_stub}}.fa.gz"
          
     output:
-        "/pscratch/sd/n/nberk/{genome_stub}.avg_embeddings.tsv"
+        f"{top_data_path}/intermediate_files/{{genome_stub}}.avg_embeddings.tsv"
 
     shell:
+        f"python {top_repo_path}/scripts/run_gpn.py {{input.json}}"
 
-"""
 
-rule all:
+rule pad_intergenic:
     input:
-        expand(f"{top_data_path}/intermediate_files/{{genome_stub}}.labels.csv", genome_stub=genome_stubs)
+        json = f"{top_data_path}/intermediate_files/{{genome_stub}}.json",
+        labels_files = f"{top_data_path}/intermediate_files/{{genome_stub}}.labels.csv"
+
+    output:
+        f"{top_data_path}/intermediate_files/{{genome_stub}}.labels_subset.csv"
+
+    shell:
+        f"python {top_repo_path}/scripts/pad_intergenic.py {{input.json}}"
 
 rule gff_to_window:
     input:
@@ -154,15 +169,15 @@ rule infer_introns:
     input:
         lambda wildcards: f"{top_data_path}/results/annotation/{gff_lookup[wildcards.genome_stub]}"
     output:
-        exon_gff = "{top_data_path}/intermediate_files/{genome_stub}.introns.exons.gff3",
-        mRNA_gff = "{top_data_path}/intermediate_files/{genome_stub}.transcripts.gff3",
-        exon_bed = "{top_data_path}/intermediate_files/{genome_stub}.introns.exons.bed",
-        mRNA_bed = "{top_data_path}/intermediate_files/{genome_stub}.transcripts.bed",
-        exon_bed_sorted = "{top_data_path}/intermediate_files/{genome_stub}.introns.exons.sorted.bed",
-        mRNA_bed_sorted = "{top_data_path}/intermediate_files/{genome_stub}.transcripts.sorted.bed",
-        exon_bed_merged = "{top_data_path}/intermediate_files/{genome_stub}.introns.exons.merged.bed",
-        mRNA_bed_merged = "{top_data_path}/intermediate_files/{genome_stub}.transcripts.merged.bed",
-        intron_bed = "{top_data_path}/intermediate_files/{genome_stub}.introns.bed"
+        exon_gff = f"{top_data_path}/intermediate_files/{{genome_stub}}.introns.exons.gff3",
+        mRNA_gff = f"{top_data_path}/intermediate_files/{{genome_stub}}.transcripts.gff3",
+        exon_bed = f"{top_data_path}/intermediate_files/{{genome_stub}}.introns.exons.bed",
+        mRNA_bed = f"{top_data_path}/intermediate_files/{{genome_stub}}.transcripts.bed",
+        exon_bed_sorted = f"{top_data_path}/intermediate_files/{{genome_stub}}.introns.exons.sorted.bed",
+        mRNA_bed_sorted = f"{top_data_path}/intermediate_files/{{genome_stub}}.transcripts.sorted.bed",
+        exon_bed_merged = f"{top_data_path}/intermediate_files/{{genome_stub}}.introns.exons.merged.bed",
+        mRNA_bed_merged = f"{top_data_path}/intermediate_files/{{genome_stub}}.transcripts.merged.bed",
+        intron_bed = f"{top_data_path}/intermediate_files/{{genome_stub}}.introns.bed"
     shell:
         """
         zgrep exon {input} > {output.exon_gff}

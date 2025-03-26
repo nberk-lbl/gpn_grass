@@ -41,7 +41,7 @@ os.environ['HF_HOME'] = '/pscratch/sd/n/nberk/gpn/gpn/tmp/'
 run_cfg = json.loads(open(sys.argv[1], 'r').read())
 
 print("loading model")
-model_path = "songlab/gpn-brassicales"
+model_path = "nberkowitz/gpn_grass_checkpoint-40000"
 model = AutoModelForMaskedLM.from_pretrained(model_path)
 
 print("loading fasta")
@@ -54,8 +54,6 @@ with gzip.open(f'{run_cfg["fa_path"]}','rt') as genome_fa:
             sequences[record.id] = record.seq
             seq_order.append(record.id)
 
-test_name = run_cfg['test_seq']
-print(f"testing with {test_name}")
 
 plt.figure(figsize=(10, 6))
 
@@ -108,4 +106,4 @@ for rec in seq_order:
 
         final_averaged_embeddings = pd.concat([final_averaged_embeddings, averaged_embeddings], ignore_index=True)
 
-final_averaged_embeddings.to_csv(f'{run_cfg["output_dir"]}/{pfx}.avg_embeddings_N.tsv', sep='\t', index=False)
+final_averaged_embeddings.to_csv(f'{run_cfg["output_dir"]}/{pfx}.avg_embeddings.tsv', sep='\t', index=False)
